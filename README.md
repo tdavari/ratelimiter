@@ -37,10 +37,17 @@ BenchmarkRateLimiter_ManyUsers-8    30000    35000 ns/op    960 B/op    29 alloc
 ---
 
 ## How the limiter works (short)
-Each request is represented by a unique member (UUID) in a Redis sorted set ratelimiter:user:<id>.
-The Lua script (executed atomically) does: Reads Redis server time with TIME → builds a float timestamp now.
-ZREMRANGEBYSCORE key 0 now - window — removes old entries outside the sliding window.
-ZCARD key — counts current requests in the window.
-If count < limit → ZADD key now member and return 1; otherwise return 0.
-EXPIRE key 3600 — resets TTL on every request (so keys are auto-cleaned).
+
+Each request is represented by a unique member (UUID) in a Redis sorted set:
+```bash
+ratelimiter:user:<id>
+```
+The Lua script (executed atomically) does the following:
+
+1. Reads Redis server time with `TIME` → builds a float timestamp `now`.
+2. `ZREMRANGEBYSCORE key 0 now - window` — removes old entries outside the sliding window.
+3. `ZCARD key` — counts current requests in the window.
+4. If `count < limit` → `ZADD key now member` and return `1`; otherwise return `0`.
+5. `EXPIRE key 3600` — resets TTL on every request (so keys are auto-cleaned).
+
 Using Redis server time avoids clock skew between distributed instances.
