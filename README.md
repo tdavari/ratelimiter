@@ -25,7 +25,7 @@ From the project root (where `docker-compose.yml` and `.env` live):
 
 ```bash
 # Build and run services, test output appears in the console
-docker compose up --build
+docker compose up app-test --build
 
 === RUN   TestRateLimiter_SlidingWindow
 --- PASS: TestRateLimiter_SlidingWindow (2.11s)
