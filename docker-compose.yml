@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  app-test:
+    image: golang:1.21
+    container_name: app-test
+    working_dir: /go/src/app
+    volumes:
+      - .:/go/src/app
+    depends_on:
+      - redis
+    environment:
+      REDIS_ADDR: redis:6379
+      REDIS_TEST_DB: 1
+    command: ["go", "test", "./internal/ratelimiter", "-v", "-bench=.", "-benchmem"]
+
+volumes:
+  redis_data:
+
