@@ -7,6 +7,8 @@ Simple README for the **distributed sliding-window rate limiter** (Go + Redis).
 ## What this repo contains
 
 - **`internal/ratelimiter`** — sliding-window limiter implementation (Lua + Go), tests and benchmark.
+- **`internal/db`** — Redis client creation & connection logic
+- **`internal/config`** — Environment & configuration loader
 - **`main.go`** — small demo that uses the limiter and prints allow/reject for a few users.
 - **`.env`** — Redis config for app & tests.
 - **`docker-compose.yml`** — Redis + test runner service that runs unit tests & benchmarks.
@@ -17,7 +19,7 @@ Uses Redis server time to avoid clock skew between instances.
 
 ---
 
-## 🚀 Quick start (recommended: Docker)
+## Quick start (recommended: Docker)
 
 Make sure you have **Docker** & **Docker Compose** installed.
 
@@ -50,4 +52,4 @@ The Lua script (executed atomically) does the following:
 4. If `count < limit` → `ZADD key now member` and return `1`; otherwise return `0`.
 5. `EXPIRE key 3600` — resets TTL on every request (so keys are auto-cleaned).
 
-Using Redis server time avoids clock skew between distributed instances.
+Using Redis server time avoids clock skew between distributed instances of app.

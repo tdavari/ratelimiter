@@ -3,56 +3,47 @@ package ratelimiter
 import (
 	"context"
 	"fmt"
+	"log"
 	"math/rand"
 	"os"
-	"strconv"
+	"ratelimiter/internal/config"
+	"ratelimiter/internal/db"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 )
 
-func getenvInt(key string, fallback int) int {
-	if val := os.Getenv(key); val != "" {
-		if v, err := strconv.Atoi(val); err == nil {
-			return v
-		}
-	}
-	return fallback
-}
+var rdb *redis.Client // shared by all tests in this package
 
-// setupRedis initializes Redis client for tests
-func setupRedis() *redis.Client {
-	err := godotenv.Load("../../.env")
+// TestMain runs once before and after all tests.
+func TestMain(m *testing.M) {
+	fmt.Println("🔧 Setting up Redis for tests...")
+
+	cfg, err := config.Load()
 	if err != nil {
-		panic("Error loading .env file")
+		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	addr := os.Getenv("REDIS_ADDR")
-	db := getenvInt("REDIS_TEST_DB", 1) // use test DB
-	poolSize := getenvInt("REDIS_POOLSIZE", 100)
-
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     addr,
-		DB:       db,
-		PoolSize: poolSize,
-	})
-	// Dealing with lazy connection for redis driver
-	if err := rdb.Ping(context.Background()).Err(); err != nil {
-		panic(fmt.Sprintf("Failed to connect to Redis at %s: %v", addr, err))
+	rdb, err = db.NewRedisClient(cfg)
+	if err != nil {
+		log.Fatalf("Failed to connect Redis: %v", err)
 	}
 
-	// Clean slate for tests
-	if err := rdb.FlushDB(context.Background()).Err(); err != nil {
-		panic(fmt.Sprintf("Failed to flush Redis: %v", err))
-	}
-	return rdb
+	// Optional: flush before starting all tests
+	rdb.FlushDB(context.Background())
+
+	// Run all test functions in this package
+	code := m.Run()
+
+	fmt.Println("🧹 Cleaning up Redis...")
+	rdb.Close()
+
+	os.Exit(code)
 }
 
 func TestRateLimiter_SlidingWindow(t *testing.T) {
-	rdb := setupRedis()
 	limiter := NewLimiterSlidingWindow(rdb, 1*time.Second)
 
 	userID := "user123"
@@ -78,7 +69,6 @@ func TestRateLimiter_SlidingWindow(t *testing.T) {
 }
 
 func TestRateLimiter_ConcurrentMultipleUsers(t *testing.T) {
-	rdb := setupRedis()
 	limiter := NewLimiterSlidingWindow(rdb, time.Second)
 
 	users := map[string]int{
@@ -119,7 +109,6 @@ func TestRateLimiter_ConcurrentMultipleUsers(t *testing.T) {
 }
 
 func BenchmarkRateLimiter_ManyUsers(b *testing.B) {
-	rdb := setupRedis()
 	limiter := NewLimiterSlidingWindow(rdb, time.Second)
 
 	users := []struct {

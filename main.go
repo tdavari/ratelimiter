@@ -1,50 +1,24 @@
 package main
 
 import (
-	"context"
 	"fmt"
+	"log"
 	"os"
+	"ratelimiter/internal/config"
+	"ratelimiter/internal/db"
 	"ratelimiter/internal/ratelimiter"
 	"strconv"
 	"sync"
 	"time"
-
-	"github.com/joho/godotenv"
-	"github.com/redis/go-redis/v9"
 )
-
-type config struct {
-
-	// rdb struct field holds the configuration settings for our redis connection pool.
-	rdb struct {
-		addr     string
-		db       int
-		poolSize int
-	}
-}
 
 // Example usage of the distributed sliding window rate limiter.
 func main() {
-	err := godotenv.Load(".env")
+	cfg, err := config.Load()
 	if err != nil {
-		panic("Error loading .env file")
+		log.Fatal(err)
 	}
-
-	cfg := config{}
-	cfg.rdb.addr = os.Getenv("REDIS_ADDR")
-	cfg.rdb.db = getenvInt("REDIS_DB", 0)
-	cfg.rdb.poolSize = getenvInt("REDIS_POOL_SIZE", 100)
-
-	// Initialize Redis connection
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     cfg.rdb.addr,
-		DB:       cfg.rdb.db,
-		PoolSize: cfg.rdb.poolSize, // good for high concurrency
-	})
-	// Deal with lazy connection in redis driver
-	if err := rdb.Ping(context.Background()).Err(); err != nil {
-		panic(fmt.Sprintf("Failed to connect to Redis at %s: %v", cfg.rdb.addr, err))
-	}
+	rdb, err := db.NewRedisClient(cfg)
 
 	// Create limiter instance (sliding window of 1 second) as it was said in task
 	limiter := ratelimiter.NewLimiterSlidingWindow(rdb, time.Second)
